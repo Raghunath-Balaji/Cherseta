@@ -86,11 +86,17 @@ def get_ai_client():
 
 # --- 1. FIREBASE INITIALIZATION ---
 # Ensure your serviceAccountKey.json is in the same folder as main.py
+# 1. Get the actual JSON text from your environment variable
+service_key_content = os.getenv("SERVICE_ACC_KEY")
+
+# 2. Parse the string into a dictionary and fix the private key newline bug
+cred_dict = json.loads(service_key_content)
+cred_dict['private_key'] = cred_dict['private_key'].replace('\\n', '\n')
+
+# 3. Initialize Firebase using the dictionary
 if not firebase_admin._apps:
-    cred = credentials.Certificate(os.getenv("SERVICE_ACC_KEY"))#
+    cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred)
-else:
-    firebase_admin.get_app()
 
 db = firestore.client()
 
