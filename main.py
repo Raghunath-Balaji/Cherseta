@@ -86,17 +86,57 @@ def get_ai_client():
 
 # --- 1. FIREBASE INITIALIZATION ---
 # Ensure your serviceAccountKey.json is in the same folder as main.py
-# 1. Get the actual JSON text from your environment variable
+# if not firebase_admin._apps:
+
+#     cred = credentials.Certificate(os.getenv("SERVICE_ACC_KEY"))#
+
+#     firebase_admin.initialize_app(cred)
+
+# else:
+
+#     firebase_admin.get_app()
+
+
+
+# db = firestore.client()
+
+
+
+# this is my existing code for initiation
+
+
+
+
+
 service_key_content = os.getenv("SERVICE_ACC_KEY")
 
-# 2. Parse the string into a dictionary and fix the private key newline bug
-cred_dict = json.loads(service_key_content)
-cred_dict['private_key'] = cred_dict['private_key'].replace('\\n', '\n')
-
-# 3. Initialize Firebase using the dictionary
 if not firebase_admin._apps:
-    cred = credentials.Certificate(cred_dict)
-    firebase_admin.initialize_app(cred)
+    if service_key_content:
+        try:
+            # 1. Strip whitespace and invisible control characters
+            cleaned_json = service_key_content.strip()
+            
+            # 2. Fix the backslash-n issue for the private key
+            cleaned_json = cleaned_json.replace('\\n', '\n')
+            
+            # 3. Parse it
+            cred_dict = json.loads(cleaned_json)
+            
+            # 4. Extra safety for the nested private_key
+            if 'private_key' in cred_dict:
+                cred_dict['private_key'] = cred_dict['private_key'].replace('\\n', '\n')
+                
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            print("✅ SUCCESS: Firebase initialized from Env Var!")
+        except Exception as e:
+            print(f"⚠️ Env Var still failing: {e}")
+            # The safety net for localhost
+            cred = credentials.Certificate("serviceAccountKey.json")
+            firebase_admin.initialize_app(cred)
+    else:
+        cred = credentials.Certificate("serviceAccountKey.json")
+        firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
@@ -704,4 +744,4 @@ if __name__ == "__main__":
     import uvicorn
     # This grabs Render's port automatically
     port = int(os.environ.get("PORT", 8080)) 
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    uvicorn.run("main:app", host="127.0.0.1", port=port)
