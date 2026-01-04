@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cherseta | Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/dashboard.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+    <nav class="top-banner">
+        <div class="nav-left">
+            <span class="logo-text">Cherseta</span>
+        </div>
+    
+        <div class="nav-right">
+            <div class="user-profile" onclick="toggleDropdown(event)">
+                <div class="user-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div id="logout-dropdown" class="dropdown-menu">
+                    <button onclick="handleLogout()" class="logout-btn">
+                        <i class="fas fa-sign-out-alt"></i> Log Out
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+
+    <div class="dashboard-wrapper">
+        <div class="status-section">
+            
+            <div class="mascot-box">
+                <video id="mascot-video" autoplay loop muted playsinline>
+                    <source id="mascot-source" src="/static/videos/happy_chersey.mp4" type="video/mp4">
+                </video>
+            </div>
+    
+            <div class="info-box">
+                <h1 id="user-greeting">Welcome, Researcher</h1>
+                <p class="mascot-instruction">
+                    Chersey needs constant learning to survive! Make sure you study regularly He loses 5 crumbs every hour. 
+                    Keep him fed to continue your work.
+                </p>
+                <div class="xp-bar-container">
+                    <span id="user-level" class="level-badge">Loading...</span>
+                    <div class="xp-bar-wrapper">
+                        <div class="xp-bar-fill" id="xp-fill"></div>
+                    </div>
+                </div>
+            </div>
+    
+            <div class="stats-squircle">
+                <div class="stat-group">
+                    
+                    <span id="crumbs-count" class="big-stat"> <i class="fas fa-cookie-bite"></i> 0</span>
+                    <span class="stat-label">Crumbs</span>
+                </div>
+                
+                <hr class="stats-divider">
+                
+                <div class="stat-group">
+                    
+                    <span id="time-left" class="big-stat">0h</span>
+                    <span class="stat-label">Lifespan</span>
+                </div>
+            </div>
+        </div>
+    
+        <div class="projects-container">
+            <h2 class="section-title">Your Research Briefs</h2>
+            
+            <div class="dashboard-grid">
+                <div class="squircle add-btn" id="add-project-btn">
+                    <span class="plus-icon">+</span>
+                    <p>New Brief</p>
+                </div>
+    
+                <div id="project-list-container" style="display: contents;">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mouse-glow"></div>
+
+
+    <script>
+        // 1. GREETING & AUTH LOGIC
+        // We grab the UID and Username saved during the login process
+        const userUid = localStorage.getItem("user_uid") || "guest_user"; 
+        const userName = localStorage.getItem("username") || "Researcher";
+
+        // --- ADD THESE DEBUG LINES HERE ---
+        console.log("DEBUG: Current userUid is:", userUid);
+        console.log("DEBUG: Request URL will be:", `/api/${userUid}/projects/list`);
+        
+        document.getElementById("user-greeting").innerText = `Hey ${userName}!`;
+    
+        // 2. CREATE PROJECT (Writes to a PRIVATE Firestore folder)
+        document.getElementById('add-project-btn').onclick = async function() {
+            const projectName = prompt("Enter the name of your new research project:");
+            
+            if (projectName && projectName.trim() !== "") {
+                try {
+                    // Notice the dynamic UID in the URL path now
+                    const response = await fetch(`/api/${userUid}/projects`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ name: projectName })
+                    });
+    
+                    if (response.ok) {
+                        const newProject = await response.json();
+                        
+                        // Refresh the list so the new bubble exists if user hits 'back'
+                        await renderProjects(); 
+                        
+                        // Redirect to the specific project instance
+                        window.location.href = `/project_view/${newProject.id}`;
+                    } else {
+                        alert("Server error: Could not save project.");
+                    }
+                } catch (error) {
+                    console.error("Failed to create project:", error);
+                    alert("Connection lost. Is main.py still running?");
+                }
+            }
+        };  
+        
+        async function confirmDelete(event, projectId, projectName) {
+    // 1. Stop the click from opening the project
+    event.stopPropagation();
+
+    // 2. Ask for confirmation
+    const proceed = confirm(`Are you sure you want to delete "${projectName}"? This cannot be undone.`);
+    
+    if (proceed) {
+        try {
+            const response = await fetch(`/api/${userUid}/projects/${projectId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                console.log(`🗑️ Project ${projectId} deleted.`);
+                // 3. Refresh the list immediately
+                renderProjects();
+            } else {
+                alert("Failed to delete project from server.");
+            }
+        } catch (err) {
+            console.error("Delete error:", err);
+            alert("Connection error. Check if main.py is running.");
+        }
+    }
+}
+    
+        // 3. RENDER PROJECTS (Reads ONLY this user's data from Firestore)
+        async function renderProjects() {
+            const container = document.getElementById("project-list-container");
+            container.innerHTML = `<p style="color: #666; margin-left: 10px;">Syncing with cloud...</p>`;
+    
+            try {
+                // We only ask for projects belonging to THIS user
+                const response = await fetch(`/api/${userUid}/projects/list`);
+                const data = await response.json();
+                const projects = data.projects || [];
+    
+                if (projects.length === 0) {
+                    container.innerHTML = `<p style="color: #444; margin-left: 10px;">No projects yet. Click '+' to start.</p>`;
+                    return;
+                }
+    
+                container.innerHTML = projects.map(project => `
+    <div class="squircle" onclick="window.location.href='/project_view/${project.id}'" style="position: relative;">
+        <div class="delete-btn" onclick="confirmDelete(event, '${project.id}', '${project.name}')">
+            <i class="fas fa-minus"></i>
+        </div>
+
+        <h3 style="margin: 0; font-size: 1.1rem; line-height: 1.3;">${project.name}</h3>
+        
+        <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+            <i class="fas fa-cloud" style="font-size: 0.7rem; color: #444;"></i>
+            <span style="font-size: 0.7rem; color: #555; text-transform: uppercase; letter-spacing: 0.5px;">
+                Synced to cloud
+            </span>
+        </div>
+    </div>
+`).join('');
+
+
+            } catch (error) {
+                container.innerHTML = `<p style="color: red;">Failed to load projects. Is main.py running?</p>`;
+            }
+        }
+
+        async function loadUserXP() {
+    try {
+        const response = await fetch(`/api/users/${userUid}/xp`);
+        const stats = await response.json();
+
+        // 1. Update text and bar
+        document.getElementById("user-level").innerText = stats.level;
+        document.getElementById("crumbs-count").innerText = stats.crumbs;
+        
+        // --- NEW LIFESPAN LOGIC START ---
+        const timeLeftElement = document.getElementById("time-left");
+        if (timeLeftElement) {
+            // Rule: 5 crumbs per hour (e.g., 100 crumbs = 20h)
+            const hoursLeft = stats.crumbs > 0 ? Math.floor(stats.crumbs / 5) : 0;
+            timeLeftElement.innerText = hoursLeft + "h";
+
+            // Visual Cue: If less than 5 hours, turn the text red/glowy
+            if (hoursLeft < 5) {
+                timeLeftElement.style.color = "#ff5555";
+                timeLeftElement.style.textShadow = "0 0 10px rgba(255, 85, 85, 0.5)";
+            } else {
+                // Return to Mint Sage (bfecac) if fed
+                timeLeftElement.style.color = "var(--accent)";
+                timeLeftElement.style.textShadow = "0 0 15px var(--accent-glow)";
+            }
+        }
+        // --- NEW LIFESPAN LOGIC END ---
+
+        const percentage = Math.min((stats.crumbs / 500) * 100, 100);
+        document.getElementById("xp-fill").style.width = percentage + "%";
+
+        // 2. MASCOT ANIMATION SWAP
+        const video = document.getElementById("mascot-video");
+        const source = document.getElementById("mascot-source");
+        const bubble = document.getElementById("mascot-bubble");
+
+        const newSrc = stats.status === "alive" 
+            ? "/static/videos/happy_chersey.mp4" 
+            : "/static/videos/dead_chersey.mp4";
+
+        if (!source.src.includes(newSrc)) {
+            source.src = newSrc;
+            video.load(); 
+            video.play();
+        }
+
+        if (stats.status === "dead") {
+            if (bubble) {
+                bubble.style.display = "block";
+                bubble.innerText = "Chersey is starved! 💀";
+            }
+        } else {
+            if (bubble) bubble.style.display = "none";
+        }
+
+    } catch (err) {
+        console.error("❌ Failed to sync Chersey:", err);
+    }
+}
+
+        // Global storage ONLY for the spotlight
+    let spotlightData = [];
+
+    async function openSpotlight() {
+        const overlay = document.getElementById("spotlight-overlay");
+        const list = document.getElementById("spotlight-list");
+        
+        overlay.classList.remove("spotlight-hidden");
+        document.getElementById("spotlight-input").focus();
+
+        // 1. Fetch fresh data just for the search
+        try {
+            const response = await fetch(`/api/${userUid}/projects/list`);
+            const data = await response.json();
+            spotlightData = data.projects || [];
+            
+            // Initial render: show all as a list
+            renderSpotlightList(spotlightData);
+        } catch (err) {
+            console.error("Spotlight fetch failed", err);
+        }
+    }
+
+    function runSpotlightSearch() {
+        const query = document.getElementById("spotlight-input").value.toLowerCase();
+        
+        // 2. Filter the locally fetched data
+        const filtered = spotlightData.filter(p => 
+            (p.name || "").toLowerCase().includes(query)
+        );
+        
+        renderSpotlightList(filtered);
+    }
+
+    function renderSpotlightList(items) {
+        const list = document.getElementById("spotlight-list");
+        
+        if (items.length === 0) {
+            list.innerHTML = `<p style="color: #666; padding: 20px;">No matches found...</p>`;
+            return;
+        }
+
+        list.innerHTML = items.map(p => `
+            <div class="spotlight-item" onclick="window.location.href='/project_view/${p.id}'">
+                <span><i class="fas fa-folder" style="margin-right: 10px; color: #555;"></i> ${p.name}</span>
+                <span style="font-size: 0.7rem; color: #444;">ID: ${p.id.substring(0,5)}</span>
+            </div>
+        `).join('');
+    }
+
+    function closeSpotlight(e) {
+        document.getElementById("spotlight-overlay").classList.add("spotlight-hidden");
+        document.getElementById("spotlight-input").value = "";
+    }
+
+    // Shortcut Listener (Ctrl+K or Cmd+K)
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            openSpotlight();
+        }
+        if (e.key === 'Escape') closeSpotlight();
+    });
+        // Run on page load
+        window.addEventListener('load', loadUserXP);
+    
+        // Run the fetch on page load
+        // DELETE THESE TWO LINES:
+// window.addEventListener('load', loadUserXP);
+// window.onload = renderProjects;
+
+// REPLACE WITH THIS:
+
+
+// Toggle Dropdown Visibility
+function toggleDropdown(event) {
+    event.stopPropagation();
+    const dropdown = document.getElementById("logout-dropdown");
+    const isVisible = dropdown.style.display === "block";
+    dropdown.style.display = isVisible ? "none" : "block";
+}
+
+// Close dropdown if user clicks anywhere else
+window.onclick = function() {
+    document.getElementById("logout-dropdown").style.display = "none";
+}
+
+// Logout Logic
+function handleLogout() {
+    console.log("🍞 [BREADCRUMB] Logging out user...");
+    localStorage.removeItem("user_uid");
+    localStorage.removeItem("username");
+    window.location.href = "/login"; // Redirect back to login page
+}
+
+document.addEventListener('mousemove', (e) => {
+    const glow = document.getElementById('mouse-glow');
+    glow.style.left = e.clientX + 'px';
+    glow.style.top = e.clientY + 'px';
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+    console.log("🚀 [SYSTEM] Dashboard Initialized.");
+    renderProjects();
+    loadUserXP();
+});
+    </script>
+</body>
+</html>

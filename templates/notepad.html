@@ -1,0 +1,190 @@
+<div id="rhs-notepad" class="rhs-panel">
+    <div class="notepad-header">
+        <div class="header-top">
+            <span class="panel-label">SCRATCHPAD</span>
+            <span id="sync-status">Saved</span>
+        </div>
+        <div class="format-bar">
+            <button onclick="formatDoc('bold')"><b>B</b></button>
+            <button onclick="formatDoc('italic')"><i>I</i></button>
+            <button onclick="formatDoc('underline')"><u>U</u></button>
+            <div class="divider"></div>
+            <button onclick="formatDoc('insertUnorderedList')">• List</button>
+            <button onclick="formatDoc('removeFormat')">⌫</button>
+        </div>
+    </div>
+
+    <div class="editor-scroll-area">
+        <input type="text" id="note-title" placeholder="Notes Title" spellcheck="false">
+        <div id="notepad-editor" contenteditable="true" placeholder="Idk man I feel lik-"></div>
+    </div>
+
+    <div class="notepad-footer">
+        <button onclick="downloadPDF()" class="action-btn">📄 PDF</button>
+        <button onclick="exportMD()" class="action-btn">📦 MD</button>
+        <button onclick="exportTXT()" class="action-btn">📝 TXT</button>
+        <button onclick="toggleNotionPopup(true)" class="action-btn notion-btn">
+            <i class="fab fa-notion"></i> 🚀 Notion
+        </button>
+    </div>
+</div>
+
+<style>
+    /* 1. Panel Layout */
+    .rhs-panel { 
+        display: flex;
+        flex-direction: column;
+        border-left: 1px solid #333; /* Darker border */
+        height: 100vh; 
+        background: #121212; /* Deep Dark Background */
+        color: #e0e0e0;
+    }
+
+    /* 2. Header & Toolbar */
+    .notepad-header {
+        padding: 15px 20px;
+        background: #1e1e1e;
+        border-bottom: 1px solid #333;
+        flex-shrink: 0;
+    }
+
+    .panel-title { margin: 0; font-size: 0.9rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+    .header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .format-bar { display: flex; gap: 6px; align-items: center; }
+    
+    .format-bar button {
+        padding: 5px 12px;
+        cursor: pointer;
+        border: 1px solid #444;
+        background: #2a2a2a;
+        color: #fff;
+        border-radius: 4px;
+        transition: 0.2s;
+    }
+
+    .format-bar button:hover { background: #3d3d3d; border-color: #666; }
+
+    .divider { width: 1px; height: 20px; background: #444; margin: 0 5px; }
+
+    /* 3. Scrolling & Content */
+    .scroll-container {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Scrollbar Styling for Dark Mode */
+    .scroll-container::-webkit-scrollbar { width: 8px; }
+    .scroll-container::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
+    /* 4. The Inputs */
+    #note-title {
+        background: transparent;
+        border: none;
+        outline: none;
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 15px;
+        width: 100%;
+        color: #ffffff; /* Brighter white for Title */
+    }
+
+    #notepad-editor { 
+        flex-grow: 1;
+        outline: none; 
+        line-height: 1.8; 
+        font-size: 1.1rem;
+        color: #cccccc; /* Slightly softer white for body text */
+        min-height: 400px;
+    }
+
+    /* Dark Mode Placeholder Fix */
+    #notepad-editor:empty:before {
+        content: attr(placeholder);
+        color: #555;
+        font-style: italic;
+    }
+
+    .rhs-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: #121212;
+    border-left: 1px solid #222;
+    overflow: hidden; /* Prevents the whole screen from scrolling */
+}
+
+/* TOP ANCHOR */
+.notepad-header {
+    flex-shrink: 0;
+    padding: 15px 20px;
+    background: #181818;
+    border-bottom: 1px solid #222;
+}
+
+/* THE SCROLLABLE ZONE */
+.editor-scroll-area {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 30px;
+    max-height: 80vh; /* 👈 Your 80% limit requirement */
+    scrollbar-width: thin;
+    scrollbar-color: #333 transparent;
+}
+
+/* Custom Scrollbar for Chrome */
+.editor-scroll-area::-webkit-scrollbar { width: 6px; }
+.editor-scroll-area::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
+#note-title {
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: white;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+#notepad-editor {
+    outline: none;
+    line-height: 1.8;
+    color: #ccc;
+    font-size: 1.1rem;
+    min-height: 200px;
+}
+
+/* BOTTOM ANCHOR */
+.notepad-footer {
+    flex-shrink: 0;
+    display: flex;
+    gap: 10px;
+    padding: 15px 20px;
+    background: #181818;
+    border-top: 1px solid #222;
+}
+
+.action-btn {
+    background: #252525;
+    color: #aaa;
+    border: 1px solid #333;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.action-btn:hover { background: #333; color: #fff; }
+.notion-btn:hover { background: #3d155f; border-color: #6a2ea1; }
+</style>

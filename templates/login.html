@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cherseta | Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/login.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    
+</head>
+<body>
+    <div id="mouse-glow"></div>
+    
+    <div class="login-card">
+        <div class="brand-section">
+            <img src="static/pictures/cherseta_logo.png" alt="logo image" class="brand-logo" width="80px" height="auto"><br>
+            <h1>Cherseta</h1>
+            <p>Deep Research Intelligence Studio</p>
+        </div>
+
+        <div class="auth-section">
+            <div class="login-squircle" id="login-btn">
+                <div class="google-icon">
+                    <img src="static/pictures/google.png" alt="Google">
+                </div>
+                <span>Login with Google</span>
+            </div>
+            <p class="secondary-hint">Authorized Personnel Only</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+    
+        const firebaseConfig = {
+            apiKey: "AIzaSyA9UOGpiIEPexiSG5yqs5vxUgj7ee5TOi0",
+            authDomain: "cherseta-77512.firebaseapp.com",
+            projectId: "cherseta-77512",
+            storageBucket: "cherseta-77512.firebasestorage.app",
+            messagingSenderId: "117678400130",
+            appId: "1:117678400130:web:0a9a536d3fbe61a8f50a9b",
+            measurementId: "G-R3NK2WYHS3"
+        };
+    
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth();
+        const provider = new GoogleAuthProvider();
+    
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                const idToken = await user.getIdToken();
+    
+                const response = await fetch("/verify-token", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ idToken: idToken })
+                });
+    
+                const data = await response.json();
+    
+                if (data.status === "success") {
+                    localStorage.setItem("user_uid", user.uid); 
+                    localStorage.setItem("username", user.displayName);
+                    window.location.href = "/dashboard";
+                } else {
+                    alert("Backend verification failed.");
+                }
+            } catch (error) {
+                console.error("Authentication Error:", error);
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+    const glow = document.getElementById('mouse-glow');
+    if (glow) {
+        glow.style.left = e.clientX + 'px';
+        glow.style.top = e.clientY + 'px';
+    }
+});
+    </script>
+</body>
+</html>

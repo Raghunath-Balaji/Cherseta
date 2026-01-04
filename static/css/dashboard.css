@@ -1,0 +1,331 @@
+/* --- 0. GLOBAL RESET & THEMES --- */
+:root {
+    --bg-main: #151515;
+    --bg-card: #1c1c1c;
+    --accent: #bfecac;
+    --accent-glow: rgba(191, 236, 172, 0.2);
+    --border-soft: rgba(255, 255, 255, 0.05);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    background-color: var(--bg-main);
+    color: #eee;
+    font-family: 'Inter', -apple-system, sans-serif;
+    width: 100%;
+    height: 100%;
+}
+
+/* --- 1. LAYOUT --- */
+.dashboard-wrapper {
+    padding: 60px 40px;
+    min-height: 100vh;
+    position: relative;
+    z-index: 2; /* Sits above mouse glow */
+}
+
+/* --- 2. SECTION 1: COMMAND CENTER (Fixed Spacing) --- */
+.status-section {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    background: #1a1a1a;
+    padding: 40px;
+    border-radius: 35px;
+    border: 1px solid var(--border-soft);
+    margin-bottom: 60px;
+}
+
+.mascot-box {
+    width: 160px;
+    height: 160px;
+    background: #000;
+    border-radius: 25px;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 1px solid var(--accent-glow);
+}
+
+#mascot-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* FIXED: Prevents white space/stretching */
+    display: block;
+}
+
+.info-box {
+    flex: 1;
+}
+
+/* Update your greeting text here */
+.info-box h1 {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+    color: #ffffff; /* This sets the fallback */
+    -webkit-text-fill-color: #ffffff; /* This overrides the 'transparent' setting */
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+.mascot-instruction {
+    color: #888;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    max-width: 500px;
+}
+
+/* XP Bar Logic */
+.xp-bar-container {
+    width: 100%;
+    max-width: 350px;
+}
+
+.level-badge {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.xp-bar-wrapper {
+    height: 10px;
+    background: #000;
+    border-radius: 10px;
+    margin-top: 8px;
+    overflow: hidden;
+    border: 1px solid #222;
+}
+
+.xp-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    box-shadow: 0 0 10px var(--accent-glow);
+    transition: width 0.8s ease;
+}
+
+/* Stats Squircle */
+.stats-squircle {
+    width: 180px;
+    aspect-ratio: 1/1;
+    background: #111;
+    border-radius: 40px;
+    border: 2px solid #222;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.stat-group { text-align: center; }
+.big-stat { display: block; font-size: 1.8rem; font-weight: 800; color: var(--accent); }
+.stat-label { font-size: 0.6rem; color: #555; text-transform: uppercase; letter-spacing: 2px; }
+.stats-divider { border: 0; border-top: 1px solid #222; width: 50%; margin: 15px 0; }
+
+/* --- 3. SECTION 2: PROJECTS --- */
+.section-title {
+    color: var(--accent); /* Uses your #bfecac variable */
+    font-size: 1.2rem;    /* Slightly bigger than the previous 0.9rem */
+    font-weight: 800;     /* Bold and impactful */
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 30px;
+    margin-left: 10px;
+    
+    /* Adds a tiny glow so the text feels "alive" */
+    text-shadow: 0 0 10px rgba(191, 236, 172, 0.2); 
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 30px;
+}
+
+/* The Individual Squircles */
+.squircle {
+    aspect-ratio: 1/1;
+    background: #1c1c1c;
+    border-radius: 35px;
+    border: 1px solid var(--border-soft);
+    padding: 25px;
+    transition: all 0.3s ease;
+}
+
+.squircle:hover {
+    border-color: var(--accent);
+    transform: translateY(-8px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+}
+
+.add-btn {
+    border: 2px dashed #333 !important;
+    background: transparent !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.plus-icon { font-size: 3rem; color: #333; margin-bottom: 10px; }
+
+/* --- 4. MOUSE GLOW --- */
+#mouse-glow {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 500px;
+    height: 500px;
+    /* We use a much sharper drop-off (30% to 70%) to avoid the 'fog' look */
+    background: radial-gradient(
+        circle, 
+        rgba(191, 236, 172, 0.15) 0%, 
+        rgba(191, 236, 172, 0.02) 40%, 
+        transparent 70%
+    );
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0; /* Move this to the absolute bottom layer */
+    transform: translate(-50%, -50%);
+    mix-blend-mode: screen; /* This prevents it from washing out blacks */
+}
+
+.plus-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+    color: #eee; /* Set to your requested off-white color */
+    transition: color 0.3s ease, transform 0.3s ease;
+}
+
+/* Optional: Make it pop when the user hovers over the button */
+.add-btn:hover .plus-icon {
+    color: var(--accent); /* Changes to #bfecac on hover */
+    transform: scale(1.1); /* Slight grow effect for responsiveness */
+}
+
+/* --- TOP BANNER STYLING --- */
+.top-banner {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    height: 70px;
+    background: rgba(21, 21, 21, 0.8);
+    backdrop-filter: blur(15px);
+    border-bottom: 1px solid var(--border-soft);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 40px;
+    z-index: 1000;
+}
+
+.logo-text {
+    font-size: 1.4rem;
+    font-weight: 900;
+    letter-spacing: -1px;
+    color: var(--accent); /* Your #bfecac Mint Sage */
+    text-shadow: 0 0 15px var(--accent-glow);
+}
+
+.user-profile {
+    position: relative;
+    cursor: pointer;
+}
+
+.user-icon {
+    width: 40px;
+    height: 40px;
+    background: #222;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid var(--border-soft);
+    transition: 0.3s;
+    color: #eee;
+}
+
+.user-icon:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* --- DROPDOWN MENU --- */
+.dropdown-menu {
+    position: absolute;
+    top: 50px;
+    right: 0;
+    background: #1c1c1c;
+    border: 1px solid #333;
+    border-radius: 12px;
+    min-width: 150px;
+    display: none; /* Hidden by default */
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+
+.logout-btn {
+    width: 100%;
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    color: #ff5555; /* Red for logout */
+    text-align: left;
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.2s;
+}
+
+.logout-btn:hover {
+    background: rgba(255, 85, 85, 0.1);
+}
+
+/* Delete Button on Project Cards */
+/* 1. The Base State: Totally invisible */
+.delete-btn {
+    position: absolute;
+    bottom: 15px;
+    right: 15px;
+    width: 30px;
+    height: 30px;
+    background: transparent;
+    color: #ff5555;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.8rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1.5px solid transparent; /* Hidden border */
+    opacity: 0; /* Totally hidden until squircle is touched */
+    z-index: 10;
+}
+
+/* 2. The Squircle Hover: "The Ghost State" 
+   Shows up as a red outline/icon when you mouse over the card */
+.squircle:hover .delete-btn {
+    opacity: 0.6; 
+    border-color: rgba(255, 85, 85, 0.3); /* Subtle red outline */
+}
+
+/* 3. The Button Hover: "The Solid State" 
+   Turns into your solid Red Circle with Black Icon when you touch the button */
+.delete-btn:hover {
+    opacity: 1 !important;
+    background: #ff4444 !important;
+    color: #000 !important; /* Black minus icon as requested */
+    border-color: #ff4444 !important;
+    transform: scale(1.15) rotate(90deg); /* Added a little rotate for flair */
+    box-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
+}

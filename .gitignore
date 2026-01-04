@@ -1,0 +1,12 @@
+# Secrets (The most important ones!)
+.env
+serviceAccountKey.json
+
+# Python clutter
+__pycache__/
+*.pyc
+.venv/
+env/
+
+# System clutter
+.DS_Store

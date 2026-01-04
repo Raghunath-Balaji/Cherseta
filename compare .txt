@@ -1,0 +1,771 @@
+async function initializeProject() {
+    console.log("📍 [STEP 2] initializeProject() started...");
+
+    if (!userUid || !projectId) {
+        console.error("❌ [ERROR] Missing critical IDs. Stopping execution.");
+        return;
+    }
+
+    try {
+        console.log(`📍 [STEP 3] Calling Python API: /api/${userUid}/projects/${projectId}`);
+        const response = await fetch(`/api/${userUid}/projects/${projectId}`);
+        
+        console.log("📍 [STEP 4] API Response received. Status:", response.status);
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log("📍 [STEP 5] Data parsed successfully:", data);
+
+            // Save all sources globally so the Context Manager (+) can see them
+            allProjectSources = data.sources || []; // 👈 THIS IS THE FIX
+
+            // Update Title Display
+            const titleElem = document.getElementById("title-display");
+            if (titleElem) {
+                titleElem.innerText = "🛡️ " + (data.name || "Untitled Project");
+                console.log("📍 [STEP 6] Title updated on UI.");
+            }
+
+            // Render existing sources in the Bank
+            if (allProjectSources.length > 0) {
+                console.log(`📍 [STEP 7] Sources found! Count: ${allProjectSources.length}. Sending to renderer...`);
+                renderVideoBank(allProjectSources);
+            } else {
+                console.warn("⚠️ [WARNING] No sources found in database.");
+            }
+
+            // Load persistent chat history
+            loadChatHistory(); // 👈 Ensures your old chats are visible on login
+            
+        } else {
+            console.error(`❌ [ERROR] API returned bad status code: ${response.status}`);
+        }
+    } catch (err) {
+        console.error("❌ [ERROR] Network or JS Crash during initialization:", err);
+    }
+}
+
+
+
+async function initializeProject() {
+    console.log("📍 [STEP 2] initializeProject() started...");
+
+    if (!userUid || !projectId) {
+        console.error("❌ [ERROR] Missing critical IDs. Stopping execution.");
+        return;
+    }
+
+    try {
+        console.log(`📍 [STEP 3] Calling Python API: /api/${userUid}/projects/${projectId}`);
+        const response = await fetch(`/api/${userUid}/projects/${projectId}`);
+        
+        console.log("📍 [STEP 4] API Response received. Status:", response.status);
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log("📍 [STEP 5] Data parsed successfully:", data);
+
+            // Update Title Display
+            const titleElem = document.getElementById("title-display");
+            if (titleElem) {
+                titleElem.innerText = "🛡️ " + (data.name || "Untitled Project");
+                console.log("📍 [STEP 6] Title updated on UI.");
+            }
+
+            // Render existing sources in the Bank
+            if (data.sources && Array.isArray(data.sources) && data.sources.length > 0) {
+                console.log(`📍 [STEP 7] Sources found! Count: ${data.sources.length}. Sending to renderer...`);
+                console.table(data.sources); // 📊 This will show your database data in a table!
+                renderVideoBank(data.sources);
+            } else {
+                console.warn("⚠️ [WARNING] 'sources' field is empty or missing in the database object. Nothing to draw.");
+            }
+        } else {
+            console.error(`❌ [ERROR] API returned bad status code: ${response.status}`);
+        }
+    } catch (err) {
+        console.error("❌ [ERROR] Network or JS Crash during initialization:", err);
+    }
+}
+
+
+
+-------------------------------------------------
+
+async def chat_with_project(uid: str, project_id: str, request: Request):
+    # STEP 0: Wake up the AI Client (Lazy Initialization)
+    client = get_ai_client()
+    if not client:
+        return {"response": "AI Assistant is offline."}
+
+    data = await request.json()
+    user_message = data.get("message")
+    selected_ids = data.get("selectedIds", []) # The IDs from your UI Pills
+
+    # STEP A: Get ONLY the selected "Squircles" for context
+    project_ref = db.collection("users").document(uid).collection("projects").document(project_id)
+    project_data = project_ref.get().to_dict()
+    all_sources = project_data.get('sources', [])
+    
+    context_list = [s['transcript'] for s in all_sources if (s.get('id') or s.get('video_id')) in selected_ids]
+    context_text = " ".join(context_list) if context_list else "No specific context selected."
+
+    # STEP B: Get the "Memory" (History)
+    chat_docs = project_ref.collection("chats").order_by("timestamp").stream()
+    history = []
+    for doc in chat_docs:
+        d = doc.to_dict()
+        history.append({
+            "role": "user" if d["role"] == "user" else "model",
+            "parts": [{"text": d["text"]}]
+        })
+
+    # STEP C: Define the Streaming Generator
+    async def generate_stream():
+        full_response = ""
+        # We use generate_content_stream for real-time text delivery
+        # Using gemini-2.5-flash (most stable for streaming)
+        response_stream = client.models.generate_content_stream(
+            model="gemini-2.5-flash", 
+            contents=history + [{"role": "user", "parts": [{"text": f"Context: {context_text}\n\nQuestion: {user_message}"}]}]
+        )
+
+        for chunk in response_stream:
+            if chunk.text:
+                full_response += chunk.text
+                # Send chunk in SSE (Server-Sent Events) format
+                yield f"data: {json.dumps({'text': chunk.text})}\n\n"
+        
+        # STEP D: Save the COMPLETE interaction to Firestore only after the stream ends
+        project_ref.collection("chats").add({
+            "role": "user", "text": user_message, "timestamp": firestore.SERVER_TIMESTAMP
+        })
+        project_ref.collection("chats").add({
+            "role": "model", "text": full_response, "timestamp": firestore.SERVER_TIMESTAMP
+        })
+
+    return StreamingResponse(generate_stream(), media_type="text/event-stream")
+
+
+
+<div class="tab-bar">
+            <div class="nav-group">
+                <a href="/dashboard" class="back-pill">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <span id="project-title-display">Project Name</span>
+            </div>
+            
+            <div class="tab active" onclick="switchTab(event, 'bank-tab')">Resource Bank</div>
+            <div class="tab" onclick="switchTab(event, 'ai-tab')">Chersey AI</div>
+            <div class="tab" onclick="switchTab(event, 'more-tab')">Learn</div>
+        </div>
+
+
+
+
+
+
+
+
+
+
+<header style="padding: 40px 40px 0 40px;">
+        <h1 id="user-greeting">Welcome, Researcher</h1>
+        <p style="color: #666;">Select a project brief or create a new one to continue.</p>
+    </header>
+
+    <!-- <div class="search-container">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="project-search" placeholder="Search projects..." onkeyup="filterProjects()">
+    </div> -->
+
+    <div class="xp-container">
+        <div class="level-badge">
+            <span id="user-level">Loading...</span>
+        </div>
+        <div class="xp-bar-wrapper">
+            <div class="xp-bar-fill" id="xp-fill" style="width: 0%;"></div>
+        </div>
+        <div class="crumbs-total">
+            <i class="fas fa-cookie-bite"></i> <span id="crumbs-count">0</span> Crumbs
+        </div>
+    </div>
+
+    <div id="mascot-container" style="position: fixed; bottom: 20px; right: 20px; width: 120px; text-align: center; z-index: 1000;">
+        <div id="mascot-bubble" style="background: white; color: black; border-radius: 10px; padding: 5px; font-size: 0.7rem; margin-bottom: 5px; border: 1px solid #ccc; display: none;">
+            Feed me!
+        </div>
+        <video id="mascot-video" width="100%" autoplay loop muted playsinline style="border-radius: 15px; pointer-events: none;">
+            <source id="mascot-source" src="/static/videos/happy_chersey.mp4" type="video/mp4">
+        </video>
+    </div>
+
+    <div class="dashboard-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; padding: 40px;">
+        <div class="squircle" id="add-project-btn" style="border: 2px dashed var(--accent); background: rgba(79, 139, 249, 0.05); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 150px; border-radius: 20px;">
+            <span style="font-size: 2.5rem; color: var(--accent);">+</span>
+            <p style="font-weight: 600; color: var(--accent);">New Brief</p>
+        </div>
+
+        <div id="project-list-container" style="display: contents;">
+            </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+        
+
+        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: #0e0e0e; color: white; overflow: hidden; }
+        .main-container { display: flex; height: 100vh; width: 100vw; }
+        
+        /* Permanent Right Side Notebook */
+        .rhs-notebook { width: 50%; border-left: 1px solid #333; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; background: #1a1a1a; }
+        
+        /* Left Side Tabbed Interface */
+        .lhs-workspace {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    background: #151515;
+    height: 100vh;
+    overflow: hidden; /* Prevents unwanted scrollbars */
+}
+        
+        /* Chrome-like Tab Bar */
+        .tab-bar { display: flex; background: #000; padding-top: 10px; padding-left: 10px; border-bottom: 1px solid #333; }
+        .tab { padding: 10px 20px; border-radius: 10px 10px 0 0; cursor: pointer; background: #222; color: #888; margin-right: 5px; font-size: 0.9rem; transition: 0.2s; border: 1px solid transparent; }
+        .tab.active { background: #1a1a1a; color: white; border: 1px solid #333; border-bottom: 1px solid #1a1a1a; }
+        
+        .tab-content { flex-grow: 1; padding: 30px; display: none; overflow-y: auto; }
+        .tab-content.active { display: flex; flex-direction: column; }
+
+        /* Video Bank (Squircles) */
+        .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 20px; }
+        .video-squircle {
+    /* 1. Force a constant 1:1 shape regardless of text */
+    aspect-ratio: 1 / 1;
+    width: 100%; /* Let the grid-container define the width */
+    max-width: 75px; /* Adjust this to your preferred size */
+    
+    /* 2. Visual Foundation */
+    background: #1a1a1a;
+    border-radius: 20px; /* More 'squircle-like' rounding */
+    border: 2px solid #333;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    /* 3. The 'Magic' for Long Titles */
+    display: -webkit-box;
+    /* -webkit-line-clamp: 4; Limits text to exactly 4 lines */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+    
+    /* 4. Layout */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #eee;
+}
+        .video-squircle:hover { border-color: #007bff; background: #333; }
+
+        /* Modal / Pop-up */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; }
+        .modal-content { background: #1a1a1a; padding: 40px; border-radius: 20px; width: 70%; max-height: 80%; overflow-y: auto; border: 1px solid #333; }
+
+        textarea { background: #111; color: #ddd; border: 1px solid #333; padding: 15px; border-radius: 10px; resize: none; flex-grow: 1; font-size: 1.1rem; line-height: 1.6; }
+        .primary-btn { background: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; }
+
+        /* Context Selection Glow for Squircles */
+        .video-squircle.selected {
+            border: 2px solid #ffcc00 !important;
+            box-shadow: 0 0 15px rgba(255, 204, 0, 0.4);
+            transform: scale(1.02);
+        }
+
+        /* New Pill Input Bar */
+        .chat-input-pill {
+            display: flex;
+            align-items: center;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 24px;
+            padding: 6px 12px;
+            gap: 10px;
+            min-height: 48px;
+        }
+
+        .input-left-section {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .add-context-btn {
+            background: transparent;
+            border: none;
+            color: #666;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .pill-display {
+            display: flex;
+            gap: 6px;
+            max-width: 300px;
+            overflow-x: auto;
+        }
+
+        .context-pill {
+            background: #222;
+            color: #efefef;
+            border: 1px solid #444;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .context-pill i {
+            cursor: pointer;
+            color: #888;
+        }
+
+        #chat-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            outline: none;
+            resize: none;
+            font-size: 14px;
+            padding: 10px 0;
+        }
+
+        .send-circle {
+            background: white;
+            color: black;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .context-popup {
+    position: absolute;
+    bottom: 60px; /* Floats above the input bar */
+    left: 0;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    width: 250px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    padding: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+}
+
+.context-popup h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #888;
+}
+
+.context-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #2a2a2a;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.context-item:hover { color: #ffcc00; }
+
+.context-item.active { color: #ffcc00; font-weight: bold; }
+
+.clear-all-btn {
+    width: 100%;
+    margin-top: 10px;
+    background: #333;
+    border: none;
+    color: white;
+    padding: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Container for the bubbles */
+#chat-window {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Base Bubble Style */
+.message-bubble {
+    padding: 12px 16px;
+    border-radius: 14px;
+    max-width: 85%;
+    font-size: 14px;
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+/* User: Blue bubble on the right */
+.user-msg {
+    align-self: flex-end;
+    background: #007bff;
+    color: white;
+    border-bottom-right-radius: 2px;
+}
+
+/* Model (AI): Dark bubble on the left */
+.model-msg {
+    align-self: flex-start;
+    background: #222;
+    color: #efefef;
+    border: 1px solid #333;
+    border-bottom-left-radius: 2px;
+}
+
+/* Ensure code blocks inside bubbles look like Gemini/ChatGPT */
+.model-msg pre {
+    background: #000;
+    padding: 10px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 10px 0;
+    border: 1px solid #444;
+}
+
+.resizer {
+        width: 8px;
+        background: #222;
+        cursor: col-resize;
+        transition: background 0.2s;
+        z-index: 100; /* Ensure it stays above content */
+    }
+    .resizer:hover, .resizer.active {
+        background: #007bff;
+    }
+    
+    /* CRITICAL: Prevent text selection while dragging */
+    .resizing-active {
+        cursor: col-resize;
+        user-select: none;
+    }
+
+    /* Position the bubble relatively so the button can anchor to its corner */
+.model-msg {
+    position: relative;
+    padding-bottom: 25px !important; /* Extra space for the button */
+}
+
+.add-to-notes-btn {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    width: 28px;
+    height: 28px;
+    background: #333;
+    border: 1px solid #444;
+    color: #888;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 12px;
+}
+
+.add-to-notes-btn:hover {
+    background: #007bff; /* Project's primary blue */
+    color: white;
+    border-color: #007bff;
+    transform: scale(1.1);
+}
+
+/* Maintain your original class name */
+.video-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+/* This is the style for the items injected into the grid */
+.video-item-squircle {
+    width: 80px;
+    height: 80px;
+    background: #1a1a1a;
+    border: 2px solid #333;
+    border-radius: 20px; /* The 'Squircle' shape */
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    overflow: hidden;
+    position: relative;
+}
+
+.video-item-squircle:hover {
+    border-color: #007bff;
+    transform: translateY(-3px);
+}
+
+.video-item-squircle i {
+    font-size: 24px;
+    color: #007bff;
+}
+
+/* This is the most important rule for tab switching */
+/* FORCE hide everything that isn't active */
+/* 1. LAYOUT & TABS VISIBILITY */
+.tab-content:not(.active) {
+    display: none !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+}
+
+.tab-content.active {
+    display: flex !important;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* 1. THE MAIN TAB BAR CONTAINER */
+/* 1. THE BAR: The container that manages the "growing" middle space */
+.tab-bar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important; /* FORCES the growth to happen in the middle */
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 10px 10px 10px 15px !important; /* Locked 10px padding on the far right */
+    background: transparent;
+}
+
+/* 2. LEFT SIDE: Back Arrow + Project Name */
+.nav-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important; /* Constant gap between arrow and name */
+    flex-shrink: 0; /* Prevents the left side from collapsing */
+}
+
+#project-title-display {
+    color: #eee;
+    font-size: 1rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* 3. RIGHT SIDE: The Tab Unit (The constant group) */
+.pill-group {
+    display: flex !important;
+    gap: 5px !important; /* CONSTANT space between tabs as demanded */
+    flex-shrink: 0; /* Prevents the tab group from shrinking or growing */
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* 4. UNIFIED PILL STYLING */
+.tab, .back-pill {
+    padding: 6px 14px;
+    border-radius: 50px; /* Pill shape */
+    background: #1a1a1a;
+    color: #888;
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid #333;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.back-pill {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+}
+
+/* 5. HOVER & ACTIVE (The Blue Theme) */
+.tab:hover, .back-pill:hover {
+    transform: scale(1.05); /* Slightly bigger */
+    color: #007bff;
+    border-color: #007bff;
+}
+
+.tab.active {
+    background: #007bff !important;
+    color: white !important;
+    border-color: #007bff !important;
+    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3); /* Blue glow */
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2000;
+}
+
+.modal-content {
+    background: #121212; /* Your signature dark gray */
+    padding: 30px;
+    border-radius: 15px;
+    border: 1px solid #333;
+    max-width: 400px;
+    text-align: center;
+    color: white;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* Updated modal styles for the cancel button */
+.secondary-btn {
+    background: transparent;
+    color: #888;
+    border: 1px solid #333;
+    padding: 8px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.secondary-btn:hover {
+    color: white;
+    border-color: #666;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.primary-btn.notion-proceed {
+    background: #007bff; /* Our signature blue */
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-------------------
+
+
+async function sendMessage() {
+        const input = document.getElementById("chat-input");
+        const message = input.value.trim();
+        if (!message) return;
+
+        // UI: Append user message
+        appendMessage("user", message);
+        input.value = "";
+        autoResize(input);
+
+        // 1. Create a placeholder bubble for the AI
+        const chatWin = document.getElementById("chat-window");
+        const modelDiv = document.createElement("div");
+        modelDiv.className = "message model-message";
+        modelDiv.innerHTML = `<div class="message-text"><i>Thinking...</i></div>`;
+        chatWin.appendChild(modelDiv);
+        const textContainer = modelDiv.querySelector(".message-text");
+
+        try {
+            const response = await fetch(`/api/${userUid}/projects/${projectId}/chat`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    message: message, 
+                    selectedIds: selectedContext.map(c => c.id) 
+                })
+            });
+
+            // 2. Setup the Stream Reader
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullMarkdown = "";
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                // Split in case multiple SSE packets arrived in one chunk
+                const lines = chunk.split("\n");
+
+                lines.forEach(line => {
+                    // 3. FIX: Only parse lines that start with 'data: '
+                    if (line.trim().startsWith("data: ")) {
+                        try {
+                            // Strip 'data: ' to get the raw JSON: {"text": "..."}
+                            const jsonStr = line.replace("data: ", "").trim();
+                            const data = JSON.parse(jsonStr);
+                            
+                            if (data.text) {
+                                fullMarkdown += data.text;
+                                // 4. FORMAT: Convert Markdown to HTML live
+                                textContainer.innerHTML = marked.parse(fullMarkdown);
+                                chatWin.scrollTop = chatWin.scrollHeight;
+                            }
+                        } catch (e) {
+                            console.error("Chunk parse error:", e);
+                        }
+                    }
+                });
+            }
+        } catch (err) {
+            console.error("❌ Stream Error:", err);
+            textContainer.innerHTML = "<i>Connection lost.</i>";
+        }
+    }

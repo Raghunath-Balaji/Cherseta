@@ -1,0 +1,20 @@
+# Web Framework & Server
+fastapi
+uvicorn[standard]
+jinja2
+python-dotenv
+
+# AI & LLM SDKs
+google-genai
+groq
+
+# Research & Search Tools
+tavily-python
+httpx
+
+# YouTube Data & Processing
+youtube-transcript-api
+yt-dlp
+
+# Database & Auth
+firebase-admin
