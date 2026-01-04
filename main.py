@@ -138,6 +138,14 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allows your Render URL to talk to your API
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # --- 3. THE FIRESTORE API ENDPOINTS (PRIORITY) ---
 # We move these to the top so FastAPI matches these specific paths first
 #dummy delete it later
