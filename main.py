@@ -20,6 +20,7 @@ from tavily import TavilyClient
 import yt_dlp
 from datetime import datetime, timezone
 from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
