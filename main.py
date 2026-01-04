@@ -700,5 +700,8 @@ async def delete_project(uid: str, project_id: str):
 
 # --- Final. START THE ENGINE ---
 if __name__ == "__main__":
-    # Set reload=True so changes update automatically during development
-    uvicorn.run("main:app", host="127.0.0.1", port=8080, reload=True)
+    import os
+    import uvicorn
+    # This grabs Render's port automatically
+    port = int(os.environ.get("PORT", 8080)) 
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
