@@ -742,8 +742,9 @@ async def delete_project(uid: str, project_id: str):
 
 # --- Final. START THE ENGINE ---
 if __name__ == "__main__":
-    import os
-    import uvicorn
-    # This grabs Render's port automatically
-    port = int(os.environ.get("PORT", 8080)) 
+# import uvicorn
+#     import os
+    # MANDATORY: Render sets the 'PORT' environment variable
+    port = int(os.environ.get("PORT", 10000))
+    # MANDATORY: host must be 0.0.0.0 for external access
     uvicorn.run("main:app", host="0.0.0.0", port=port)
