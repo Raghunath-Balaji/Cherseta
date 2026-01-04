@@ -104,38 +104,31 @@ def get_ai_client():
 
 # this is my existing code for initiation
 
-
-
-
+# Get the absolute path to the directory where main.py is located
+base_dir = os.path.dirname(os.path.abspath(__file__))
+local_key_path = os.path.join(base_dir, "serviceAccountKey.json")
 
 service_key_content = os.getenv("SERVICE_ACC_KEY")
 
 if not firebase_admin._apps:
     if service_key_content:
         try:
-            # 1. Strip whitespace and invisible control characters
-            cleaned_json = service_key_content.strip()
-            
-            # 2. Fix the backslash-n issue for the private key
-            cleaned_json = cleaned_json.replace('\\n', '\n')
-            
-            # 3. Parse it
+            cleaned_json = service_key_content.strip().replace('\\n', '\n')
             cred_dict = json.loads(cleaned_json)
-            
-            # 4. Extra safety for the nested private_key
             if 'private_key' in cred_dict:
                 cred_dict['private_key'] = cred_dict['private_key'].replace('\\n', '\n')
                 
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
-            print("✅ SUCCESS: Firebase initialized from Env Var!")
+            print("✅ Firebase initialized from Env Var!")
         except Exception as e:
-            print(f"⚠️ Env Var still failing: {e}")
-            # The safety net for localhost
-            cred = credentials.Certificate("serviceAccountKey.json")
+            print(f"⚠️ Env Var failing, using file: {e}")
+            # USE ABSOLUTE PATH HERE
+            cred = credentials.Certificate(local_key_path)
             firebase_admin.initialize_app(cred)
     else:
-        cred = credentials.Certificate("serviceAccountKey.json")
+        # USE ABSOLUTE PATH HERE
+        cred = credentials.Certificate(local_key_path)
         firebase_admin.initialize_app(cred)
 
 db = firestore.client()
@@ -744,4 +737,4 @@ if __name__ == "__main__":
     import uvicorn
     # This grabs Render's port automatically
     port = int(os.environ.get("PORT", 8080)) 
-    uvicorn.run("main:app", host="127.0.0.1", port=port)
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
