@@ -104,34 +104,11 @@ def get_ai_client():
 
 
 # this is my existing code for initiation
-
-# Get the absolute path to the directory where main.py is located
-base_dir = os.path.dirname(os.path.abspath(__file__))
-local_key_path = os.path.join(base_dir, "serviceAccountKey.json")
-
-service_key_content = os.getenv("SERVICE_ACC_KEY")
-
 if not firebase_admin._apps:
-    if service_key_content:
-        try:
-            cleaned_json = service_key_content.strip().replace('\\n', '\n')
-            cred_dict = json.loads(cleaned_json)
-            if 'private_key' in cred_dict:
-                cred_dict['private_key'] = cred_dict['private_key'].replace('\\n', '\n')
-                
-            cred = credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred)
-            print("✅ Firebase initialized from Env Var!")
-        except Exception as e:
-            print(f"⚠️ Env Var failing, using file: {e}")
-            # USE ABSOLUTE PATH HERE
-            cred = credentials.Certificate(local_key_path)
-            firebase_admin.initialize_app(cred)
-    else:
-        # USE ABSOLUTE PATH HERE
-        cred = credentials.Certificate(local_key_path)
-        firebase_admin.initialize_app(cred)
-
+    cred = credentials.Certificate(os.getenv("SERVICE_ACC_KEY"))#
+    firebase_admin.initialize_app(cred)
+else:
+    firebase_admin.get_app()
 db = firestore.client()
 
 # --- 2. INITIALIZE APP & TEMPLATES ---
@@ -139,13 +116,13 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], # Allows your Render URL to talk to your API
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"], # Allows your Render URL to talk to your API
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
 # --- 3. THE FIRESTORE API ENDPOINTS (PRIORITY) ---
 # We move these to the top so FastAPI matches these specific paths first
@@ -154,6 +131,7 @@ app.add_middleware(
 async def ping():
     print("!!! PING RECEIVED !!!")
     return {"message": "pong"}
+
 # CREATE: Saves a project to the specific user's folder
 
 @app.post("/api/{uid}/projects")
@@ -677,10 +655,13 @@ def calculate_level(crumbs):
 
 @app.get("/api/users/{uid}/xp")
 async def get_user_xp(uid: str):
+    print("function is called to fetch user's xp")
     user_ref = db.collection("users").document(uid)
+    print("database gave back a response")
     user_doc = user_ref.get()
     
     if not user_doc.exists:
+        print("user is newly created/ doesn't exist so creating crumb config")
         return {"crumbs": 0, "level": "Newbie", "status": "dead"}
 
     data = user_doc.to_dict()
@@ -724,6 +705,8 @@ async def get_user_xp(uid: str):
         "status": status
     }
 
+    
+
 @app.delete("/api/{uid}/projects/{project_id}")
 async def delete_project(uid: str, project_id: str):
     try:
@@ -747,4 +730,4 @@ if __name__ == "__main__":
     # MANDATORY: Render sets the 'PORT' environment variable
     port = int(os.environ.get("PORT", 10000))
     # MANDATORY: host must be 0.0.0.0 for external access
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    uvicorn.run("main:app", host="127.0.0.1", port=8080)
